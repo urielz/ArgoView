@@ -8,8 +8,6 @@ import sys
 import math
 from mpl_toolkits.basemap import Basemap
 
-# here I am changing stuff
-
 def geo_dist(lat1, long1, lat2, long2):
 
     deg2rad = math.pi/180.0 # Convert latitude and longitude to spherical coordinates in radians
