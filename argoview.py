@@ -1,3 +1,9 @@
+# argoview.py
+#
+# gets and plots Argo floats profiles for a given region and time period
+# initial release- dec2015
+#
+
 import numpy as np
 import matplotlib.pyplot as plt
 import netCDF4 as nc
