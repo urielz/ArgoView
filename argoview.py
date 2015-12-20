@@ -12,26 +12,25 @@ import datetime
 import os.path
 import sys
 import math
+import seawater as sw
 from mpl_toolkits.basemap import Basemap
 
-# here's a test
-
-def geo_dist(lat1, long1, lat2, long2):
-
-    deg2rad = math.pi/180.0 # Convert latitude and longitude to spherical coordinates in radians
-
-    phi1 = (90.0 - lat1)*deg2rad # phi = 90 - latitude
-    phi2 = (90.0 - lat2)*deg2rad
-
-    theta1 = long1*deg2rad # theta = longitude
-    theta2 = long2*deg2rad
-
-    # Compute spherical distance from spherical coordinates
-    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
-           math.cos(phi1)*math.cos(phi2))
-    arc = math.acos( cos )
-
-    return arc
+# def geo_dist(lat1, long1, lat2, long2):
+#
+#     deg2rad = math.pi/180.0 # Convert latitude and longitude to spherical coordinates in radians
+#
+#     phi1 = (90.0 - lat1)*deg2rad # phi = 90 - latitude
+#     phi2 = (90.0 - lat2)*deg2rad
+#
+#     theta1 = long1*deg2rad # theta = longitude
+#     theta2 = long2*deg2rad
+#
+#     # Compute spherical distance from spherical coordinates
+#     cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
+#            math.cos(phi1)*math.cos(phi2))
+#     arc = math.acos( cos )
+#
+#     return arc
 
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
@@ -112,6 +111,7 @@ else: # check the one you have is up-to-date
 # search for argo floats in ROI
 for ii in range (1,31):
 
+    # specify date
     d = datetime.datetime.now()
     cyy = getattr(d,'year')
     cmm = getattr(d,'month')
@@ -119,11 +119,9 @@ for ii in range (1,31):
     cmm = 11
     cdd = ii
 
-    if os.path.exists(fidx_tmp):
-        print 'current Argo file exists, execution stopped...'
-#        sys.exit()
+    print 'Searching for Argo profiles in ROI from '+str(cyy)+'/'+str(cmm)+'/'+str(cdd)
 
-    # get new profiles metadata
+    # find profiles in Argo index file from specified date and write to tmp file
     os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
 
     f = open(fidx_tmp,'r')
@@ -133,11 +131,13 @@ for ii in range (1,31):
     lon   = []
     prid  = []
 
+    # iterate through profiles from specified date, and find lat, lon and prid
     for line in f:
         clat = float(line.split(',')[2])
         clon = float(line.split(',')[3])
         cprid = str(str(line.split('/')[3]).split('.nc')[0])
 
+        # extract profiles in ROI and save lat, lon, prid
         if clat < bound[0] and clat > bound[1] and clon > bound[2] and clon < bound[3]:
             lat.append(clat)
             lon.append(clon)
@@ -147,13 +147,16 @@ for ii in range (1,31):
 
     f.close()
 
+
     if fcnt == 0:
         print 'no new floats profiles available'
     else:
+        print str(fcnt)+' profiles floats found... downloading ...'
+        # download profiles on spec day in ROI
         os.system('ftp -V '+d)
         os.system('mv *.nc ./'+pdir2)
-        print str(fcnt)+' profile floats retrieved'
 
+        print 'making figures'
         # basemap plot - location of new profiles
         # llcrnrlat,llcrnrlon,urcrnrlat,urcrnrlon: are the lat/lon values of the lower left and upper right corners of the map.
         m = Basemap(llcrnrlon=-140.,llcrnrlat=-70.,urcrnrlon=-40.,urcrnrlat=-20.,
@@ -185,7 +188,7 @@ for ii in range (1,31):
         i = 0
         for prof in prid: # read and plot individual profiles
 
-            print prof+'.nc'
+#            print prof+'.nc'
 
             geb = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
             s = geb.variables['PSAL'][:]#.compressed()
@@ -199,7 +202,7 @@ for ii in range (1,31):
                 f1.close()
                 i = i + 1
 
-                if os.system('grep '+prof.split('_')[0][1:]+' '+sidx)!=0: # check if float is in database
+                if os.system('grep -q '+prof.split('_')[0][1:]+' '+sidx)!=0: # check if float is in database
                     f_upd = 0
                     f.write(prof.split('_')[0][1:]+'\n') # new float
 
@@ -257,7 +260,8 @@ for ii in range (1,31):
                             tkm.append(0)
                         else:
                             if tlat[ii-1]!=tlat[ii] or tlon[ii-1]!=tlon[ii]:
-                                tkm.append(6373*geo_dist(tlat[ii-1],tlon[ii-1],tlat[ii],tlon[ii])+tkm[-1])
+                                tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
+                                # tkm.append(6373*geo_dist(tlat[ii-1],tlon[ii-1],tlat[ii],tlon[ii])+tkm[-1])
                             else:
                                 tkm.append(tkm[-1])
                         ii=ii+1
