@@ -31,13 +31,18 @@ def geo_dist(lat1, long1, lat2, long2):
 
     return arc
 
+# ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
 server2  = 'ftp://ftp.ifremer.fr/ifremer/argo'
 
-fidx     = 'ar_index_global_prof.txt'
+server = server1
+
+# default file names
+fidx     = 'ar_index_global_prof.txt'  # argo index file
 fidx_tmp = 'ar_index_global_prof_tmp.txt'
 sidx     = 'ar_index_sections.txt'
 
+# directories for data (argo.*) and figures (fig.*)
 mdir     = 'fig.daily_maps/'
 pdir     = 'fig.daily_profiles/'
 sdir     = 'fig.sections/'
@@ -46,11 +51,12 @@ pdir2    = 'argo.profiles/'
 sdir2    = 'argo.sections/'
 tdir2    = 'argo.trajectories/'
 
-bound = (-35,-70,-105,-35) # boundaries latN, latS, lonW, lonE
+# ROI boundaries latN, latS, lonW, lonE
+bound = (-35,-70,-105,-35)
 
 deg = u'\N{DEGREE SIGN}'
 
-# check dir structure
+# check dir structure and make directories if required
 if not os.path.exists(mdir): os.system('mkdir '+mdir)
 if not os.path.exists(pdir): os.system('mkdir '+pdir)
 if not os.path.exists(sdir): os.system('mkdir '+sdir)
@@ -60,9 +66,48 @@ if not os.path.exists(sdir2): os.system('mkdir '+sdir2)
 if not os.path.exists(tdir2): os.system('mkdir '+tdir2)
 
 # update argo index file
-if not os.path.exists(fidx): # change this - compare timestamps
-    os.system('ftp '+server1+fidx)  # get updated argo index file
+# get last file update time
 
+if not os.path.exists(fidx): # download Argo index file
+    cmd = 'ftp -V '+server+fidx+'.gz'
+    print cmd
+    print 'Downloading Argo index file. This may take some time... '
+    os.system(cmd)  # get updated argo index file
+    cmd = 'gunzip -f '+fidx+'.gz'
+    os.system(cmd)
+else: # check the one you have is up-to-date
+    cmd = 'curl -r 0-500 '+server+'ar_index_global_prof.txt > header.txt'
+    print 'Checking timestamp of Argo index file on server... '
+    print cmd
+    os.system(cmd)
+
+    f = open('header.txt','r')
+    for line in f:
+        if 'Date of update' in line: dlineServer=line
+    f.close()
+
+    f = open(fidx,'r')
+    for line in f:
+        if 'Date of update' in line: dlineLocal=line
+    f.close()
+
+    uptodate = dlineServer == dlineLocal
+
+    cmd = 'rm header.txt'
+    os.system(cmd)
+
+    if not uptodate:
+        cmd = 'ftp -V '+server+fidx+'.gz'
+        print 'Updating your Argo index file. This may take some time... '
+        print cmd
+        os.system(cmd)  # get updated argo index file
+        cmd = 'gunzip -f '+fidx+'.gz'
+        os.system(cmd)
+    else:
+        print 'Your Argo index file is up-to-date.'
+
+
+# search for argo floats in ROI
 for ii in range (1,31):
 
     d = datetime.datetime.now()
@@ -74,9 +119,10 @@ for ii in range (1,31):
 
     if os.path.exists(fidx_tmp):
         print 'current Argo file exists, execution stopped...'
-        sys.exit()
+#        sys.exit()
 
-    os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp) # get new profiles metadata
+    # get new profiles metadata
+    os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
 
     f = open(fidx_tmp,'r')
     fcnt = 0
@@ -102,7 +148,7 @@ for ii in range (1,31):
     if fcnt == 0:
         print 'no new floats profiles available'
     else:
-        os.system('ftp '+d)
+        os.system('ftp -V '+d)
         os.system('mv *.nc ./'+pdir2)
         print str(fcnt)+' profile floats retrieved'
 
