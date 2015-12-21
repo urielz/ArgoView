@@ -15,23 +15,6 @@ import math
 import seawater as sw
 from mpl_toolkits.basemap import Basemap
 
-# def geo_dist(lat1, long1, lat2, long2):
-#
-#     deg2rad = math.pi/180.0 # Convert latitude and longitude to spherical coordinates in radians
-#
-#     phi1 = (90.0 - lat1)*deg2rad # phi = 90 - latitude
-#     phi2 = (90.0 - lat2)*deg2rad
-#
-#     theta1 = long1*deg2rad # theta = longitude
-#     theta2 = long2*deg2rad
-#
-#     # Compute spherical distance from spherical coordinates
-#     cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
-#            math.cos(phi1)*math.cos(phi2))
-#     arc = math.acos( cos )
-#
-#     return arc
-
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
 server2  = 'ftp://ftp.ifremer.fr/ifremer/argo'
@@ -54,6 +37,10 @@ tdir2    = 'argo.trajectories/'
 
 # ROI boundaries latN, latS, lonW, lonE
 bound = (-35,-70,-105,-35)
+
+# gross sanity check - max/min accepted values for variables
+smin_check = 20
+smax_check = 40
 
 deg = u'\N{DEGREE SIGN}'
 
@@ -188,8 +175,6 @@ for ii in range (1,31):
         i = 0
         for prof in prid: # read and plot individual profiles
 
-#            print prof+'.nc'
-
             geb = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
             s = geb.variables['PSAL'][:]#.compressed()
             p = geb.variables['PRES'][:]#.compressed()
@@ -207,10 +192,10 @@ for ii in range (1,31):
                     f.write(prof.split('_')[0][1:]+'\n') # new float
 
                     with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%4d',newline='\r\n')
-                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.1f',newline='\r\n')
+                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
+                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.2f',newline='\r\n')
                     with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5d',newline='\r\n')
+                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
                         np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 else: # float in database
@@ -259,23 +244,19 @@ for ii in range (1,31):
                         if ii == 0:
                             tkm.append(0)
                         else:
-                            if tlat[ii-1]!=tlat[ii] or tlon[ii-1]!=tlon[ii]:
-                                tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
-                                # tkm.append(6373*geo_dist(tlat[ii-1],tlon[ii-1],tlat[ii],tlon[ii])+tkm[-1])
-                            else:
-                                tkm.append(tkm[-1])
+                            tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
                         ii=ii+1
                     f1.close()
 
                     m = Basemap(projection='merc',llcrnrlat=max(tlat)+0.4,urcrnrlat=min(tlat)-0.4,
                     llcrnrlon=min(tlon)-0.4,urcrnrlon=max(tlon)+0.4)
 
+                    # plot float trajectory
                     m.bluemarble()
                     parallels = np.arange(0.,-90,-0.2)
                     meridians = np.arange(180.,360.,0.2)
                     m.drawparallels(parallels,labels=[1,0,0,0],fontsize=10)
                     m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=10)
-
                     x, y = m(tlon,tlat)
                     m.scatter(x,y,10,marker='o',color='r')
                     m.plot(x,y,'r-.')
@@ -288,9 +269,10 @@ for ii in range (1,31):
                         plt.text(xpt+1000, ypt+500, label,color='w',size='8')
 
                     plt.title("Argo profile: "+str(prof.split('_')[0][1:]))
-
                     plt.savefig(tdir+prof.split('_')[0][1:]+'.png',dpi=300)
                     plt.close()
+
+                    # plot section
 
             else:
 
