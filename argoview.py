@@ -11,6 +11,7 @@ import os
 import datetime
 import os.path
 import sys
+import seawater as sw
 import math
 from mpl_toolkits.basemap import Basemap
 
