@@ -181,11 +181,16 @@ for ii in range (1,31):
         for prof in prid: # read and plot individual profiles
 
             arpr = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
-            s = arpr.variables['PSAL'][:]#.compressed()
-            p = arpr.variables['PRES'][:]#.compressed()
-            t = arpr.variables['TEMP'][:]#.compressed()
+            s = arpr.variables['PSAL'][0,:]#.compressed()
+            p = arpr.variables['PRES'][0,:]#.compressed()
+            t = arpr.variables['TEMP'][0,:]#.compressed()
+            # s = arpr.variables['PSAL'][:]#.compressed()
+            # p = arpr.variables['PRES'][:]#.compressed()
+            # t = arpr.variables['TEMP'][:]#.compressed()
 
-            if np.size(p)>0: # profile has valid data
+            p_goods = p != 99999
+
+            if np.size(p_goods)>0: # profile has valid data
 
                 # update trajectory file
                 f1 = open(tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
@@ -203,11 +208,11 @@ for ii in range (1,31):
 
                 # create float profile flie with p, t, s
                 with open(sdir2+prof.split('_')[0][1:]+'_p.txt','a') as f_handle:
-                    np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
+                    np.savetxt(f_handle, p.reshape(1,p.shape[0]), delimiter=' ',fmt='%5.1f',newline='\r\n')
                 with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
-                    np.savetxt(f_handle, t, delimiter=' ',fmt='%3.2f',newline='\r\n')
+                    np.savetxt(f_handle, t.reshape(1,t.shape[0]), delimiter=' ',fmt='%3.2f',newline='\r\n')
                 with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
-                    np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
+                    np.savetxt(f_handle, s.reshape(1,s.shape[0]), delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 # make profile plot
                 fig = plt.figure(1,facecolor='white',edgecolor='black')
@@ -292,27 +297,32 @@ for ii in range (1,31):
                     plt.close()
 
                     # plot section
-                    sprof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
 
-                    sprof[1:,:][sprof[1:,:]>smax_check] = -1
-                    sprof[1:,:][sprof[1:,:]<smin_check] = 'NaN'
+                    if prof.split('_')[0][1:] != '6901654': # '6901710' yet another one with different size
 
-                    pres = sprof[0,:]
-                    sec  = np.array([1,2,3])
-                    #sal  = sprof[1:,:]
+                        s_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
+                        p_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_p.txt')
 
-                    sal_m = np.ma.masked_invalid(sprof[1:,:])
+                        s_prof[1:,:][s_prof[1:,:]>smax_check] = -1
+                        s_prof[1:,:][s_prof[1:,:]<smin_check] = 'NaN'
 
-                    #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
-                    plt.pcolor(sec,-sprof[0,:],salm.T)
-                    plt.clim([33.5,35])
-                    plt.colorbar()
-                    plt.ylabel('Pressure (dbar)')
-                    plt.xlabel('Distance (Km)')
+                        #sys.exit()
+                        pres = p_prof[0,:]
+                        sec  = np.array(range(1,np.shape(p_prof)[0]+2))
 
-                    plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
-                    plt.savefig(sdir2+prof.split('_')[0][1:]+'.png',dpi=300)
-                    plt.close()
+                        #sal  = sprof[1:,:]
+                        #sal_m = np.ma.masked_invalid(s_prof[1:,:])
+                        #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
+
+                        plt.pcolor(sec,-pres,s_prof.T)
+                        plt.clim([33.5,35])
+                        plt.colorbar()
+                        plt.ylabel('Pressure (dbar)')
+                        plt.xlabel('Distance (Km)')
+
+                        plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
+                        plt.savefig(sdir+prof.split('_')[0][1:]+'.png',dpi=300)
+                        plt.close()
 
             else:
 
