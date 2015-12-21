@@ -197,23 +197,17 @@ for ii in range (1,31):
                     # float is not already in sections database
                     f_upd = 0 # don't make trajectory plot for single time!
                     f.write(prof.split('_')[0][1:]+'\n') # add float to database
-
-                    # create float profile flie with p, t, s
-                    with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
-                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.2f',newline='\r\n')
-                    with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
-                        np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
-
                 else:
                     # float in database
                     f_upd = 1 # yes, make trajectory plots
 
-                    with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
-                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.1f',newline='\r\n')
-                    with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
-                        np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
+                # create float profile flie with p, t, s
+                with open(sdir2+prof.split('_')[0][1:]+'_p.txt','a') as f_handle:
+                    np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
+                with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
+                    np.savetxt(f_handle, t, delimiter=' ',fmt='%3.2f',newline='\r\n')
+                with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
+                    np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 # make profile plot
                 fig = plt.figure(1,facecolor='white',edgecolor='black')
@@ -298,27 +292,27 @@ for ii in range (1,31):
                     plt.close()
 
                     # plot section
-                    # sprof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
-                    #
-                    # sprof[1:,:][sprof[1:,:]>smax_check] = -1
-                    # sprof[1:,:][sprof[1:,:]<smin_check] = 'NaN'
-                    #
-                    # pres = sprof[0,:]
-                    # sec  = np.array([1,2,3])
-                    # #sal  = sprof[1:,:]
-                    #
-                    # sal_m = np.ma.masked_invalid(sprof[1:,:])
-                    #
-                    # #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
-                    # plt.pcolor(sec,-sprof[0,:],salm.T)
-                    # plt.clim([33.5,35])
-                    # plt.colorbar()
-                    # plt.ylabel('Pressure (dbar)')
-                    # plt.xlabel('Distance (Km)')
-                    #
-                    # plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
-                    # plt.savefig(sdir2+prof.split('_')[0][1:]+'.png',dpi=300)
-                    # plt.close()
+                    sprof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
+
+                    sprof[1:,:][sprof[1:,:]>smax_check] = -1
+                    sprof[1:,:][sprof[1:,:]<smin_check] = 'NaN'
+
+                    pres = sprof[0,:]
+                    sec  = np.array([1,2,3])
+                    #sal  = sprof[1:,:]
+
+                    sal_m = np.ma.masked_invalid(sprof[1:,:])
+
+                    #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
+                    plt.pcolor(sec,-sprof[0,:],salm.T)
+                    plt.clim([33.5,35])
+                    plt.colorbar()
+                    plt.ylabel('Pressure (dbar)')
+                    plt.xlabel('Distance (Km)')
+
+                    plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
+                    plt.savefig(sdir2+prof.split('_')[0][1:]+'.png',dpi=300)
+                    plt.close()
 
             else:
 
