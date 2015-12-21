@@ -9,11 +9,16 @@ import matplotlib.pyplot as plt
 import netCDF4 as nc
 import os
 import datetime
+from datetime import date
 import os.path
 import sys
 import seawater as sw
 import math
 from mpl_toolkits.basemap import Basemap
+
+# initial/final dates
+t0 =  date.toordinal(date(2015,9,1))
+t1 =  date.toordinal(date(2015,12,21))
 
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
@@ -24,19 +29,21 @@ server = server1
 # GEBCO 30'' file name
 gebf    = 'GEBCO_2014_2D_-105.0_-70.0_-35.0_-30.0.nc'
 
+odir = 'out/'
+
 # default file names
 fidx     = 'ar_index_global_prof.txt'  # argo index file
-fidx_tmp = 'ar_index_global_prof_tmp.txt'
-sidx     = 'ar_index_sections.txt'
+fidx_tmp = odir+'ar_index_global_prof_tmp.txt'
+sidx     = odir+'ar_index_sections.txt'
 
 # directories for data (argo.*) and figures (fig.*)
-mdir     = 'fig.daily_maps/'
-pdir     = 'fig.daily_profiles/'
-sdir     = 'fig.sections/'
-tdir     = 'fig.trajectories/'
-pdir2    = 'argo.profiles/'
-sdir2    = 'argo.sections/'
-tdir2    = 'argo.trajectories/'
+mdir     = odir+'fig.daily_maps/'
+pdir     = odir+'fig.daily_profiles/'
+sdir     = odir+'fig.sections/'
+tdir     = odir+'fig.trajectories/'
+pdir2    = odir+'argo.profiles/'
+sdir2    = odir+'argo.sections/'
+tdir2    = odir+'argo.trajectories/'
 
 # ROI boundaries latN, latS, lonW, lonE
 bound = (-35,-70,-105,-35)
@@ -48,6 +55,7 @@ smax_check = 40
 deg = u'\N{DEGREE SIGN}'
 
 # check dir structure and make directories if required
+if not os.path.exists(odir): os.system('mkdir '+odir)
 if not os.path.exists(mdir): os.system('mkdir '+mdir)
 if not os.path.exists(pdir): os.system('mkdir '+pdir)
 if not os.path.exists(sdir): os.system('mkdir '+sdir)
@@ -99,14 +107,17 @@ else: # check the one you have is up-to-date
 
 
 # search for argo floats in ROI
-for ii in range (1,31):
+for ii in range (t0,t1):
 
-    d = datetime.datetime.now()
-    cyy = getattr(d,'year')
-    cmm = getattr(d,'month')
-    cdd = getattr(d,'day')
-    cmm = 11
-    cdd = ii
+    cdd = date.fromordinal(ii).day
+    cmm = date.fromordinal(ii).month
+    cyy = date.fromordinal(ii).year
+
+    # daily forecast
+    # d = datetime.datetime.now()
+    # cyy = getattr(d,'year')
+    # cmm = getattr(d,'month')
+    # cdd = getattr(d,'day')
 
     if os.path.exists(fidx_tmp):
         print 'current Argo file exists, execution stopped...'
@@ -143,7 +154,7 @@ for ii in range (1,31):
         # download profiles on spec day in ROI
         os.chdir(pdir2)
         os.system('ftp -V '+d)
-        os.chdir('../')
+        os.chdir('../../')
 
         print 'making float location figure...'
 
@@ -167,7 +178,7 @@ for ii in range (1,31):
 
         plt.title("Argo profiles - "+str(cmm)+'/'+str(cdd)+'/'+str(cyy))
 
-        plt.savefig('./'+mdir+'/Argo_'+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'.png',dpi=300)
+        plt.savefig('./'+mdir+'Argo_'+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'.png',dpi=300)
         plt.close()
 
         if not os.path.exists(pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd):
@@ -245,16 +256,16 @@ for ii in range (1,31):
                     tlon = []
                     tcnt = []
                     tkm  = []
-                    ii   = 0
+                    icnt   = 0
                     for line in f1:
                         tlat.append(float(line.split(' ')[1]))
                         tlon.append(float(line.split(' ')[2]))
-                        tcnt.append(ii)
-                        if ii == 0:
+                        tcnt.append(icnt)
+                        if icnt == 0:
                             tkm.append(0)
                         else:
-                            tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
-                        ii=ii+1
+                            tkm.append(sw.dist((tlat[icnt-1],tlat[icnt]), (tlon[icnt-1],tlon[icnt]), units='km')[0]+tkm[-1])
+                        icnt=icnt+1
                     f1.close()
 
                     # make trajectory plot for this float
@@ -265,8 +276,8 @@ for ii in range (1,31):
 
                     geb  = nc.Dataset(gebf)
                     topo = geb.variables['elevation'][:]
-                    lon = geb.variables['lon'][:]
-                    lat = geb.variables['lat'][:]
+                    glon = geb.variables['lon'][:]
+                    glat = geb.variables['lat'][:]
 
                     # plot float trajectory
                     m.bluemarble()
@@ -274,16 +285,26 @@ for ii in range (1,31):
                     meridians = np.arange(180.,360.,0.2)
                     m.drawparallels(parallels,labels=[1,0,0,0],fontsize=10)
                     m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=10)
+
+                    lon0 = np.argmin(np.abs(np.min(tlon)-dlon-glon))
+                    lon1 = np.argmin(np.abs(np.max(tlon)+dlon-glon))
+                    lat0 = np.argmin(np.abs(np.min(tlat)-dlat-glat))
+                    lat1 = np.argmin(np.abs(np.max(tlat)+dlat-glat))
+#                    dl = np.max
+                    [LON,LAT] = np.meshgrid(glon[lon0:lon1],glat[lat0:lat1]);
+                    [X,Y] = m(LON,LAT)
+                    # x, y = m(lon[lon0:lon1],lat[lat0:lat1])
+                    # [X,Y] = np.meshgrid(x,y)
+                    cmax = np.max(topo[lat0:lat1,lon0:lon1])
+                    cmin = np.min(topo[lat0:lat1,lon0:lon1])
+                    v = np.linspace(cmin,cmax,5)
+                    co = m.contour(X,Y,topo[lat0:lat1,lon0:lon1],v,colors='w',linestyles='solid')
+                    plt.clabel(co,inline=True,fmt='%1.0f',fontsize=10,colors='w')
+                    del X, Y
+
                     x, y = m(tlon,tlat)
                     m.scatter(x,y,10,marker='o',color='r')
                     m.plot(x,y,'r-.')
-
-                    lon0 = np.argmin(np.abs(np.min(tlon)-dlon-lon))
-                    lon1 = np.argmin(np.abs(np.max(tlon)+dlon-lon))
-                    lat0 = np.argmin(np.abs(np.min(tlat)-dlat-lat))
-                    lat1 = np.argmin(np.abs(np.max(tlat)+dlat-lat))
-#                    x, y = m(lon[lon0:lon1],lat[lat0:lat1])
-#                    m.contour(x,y,topo[lat0:lat1,lon0:lon1],'k')
 
                     lab = []
                     for j in range(1,np.size(tkm)+1):
@@ -291,6 +312,7 @@ for ii in range (1,31):
 
                     for label, xpt, ypt in zip(lab, x, y):
                         plt.text(xpt+1000, ypt+500, label,color='w',size='8')
+                    del x, y
 
                     plt.title("Argo profile: "+str(prof.split('_')[0][1:]))
                     plt.savefig(tdir+prof.split('_')[0][1:]+'.png',dpi=300)
@@ -298,31 +320,33 @@ for ii in range (1,31):
 
                     # plot section
 
-                    if prof.split('_')[0][1:] != '6901654': # '6901710' yet another one with different size
+                    do_sec = 0
+                    if do_sec == 1:
+                        if prof.split('_')[0][1:] != '6901654': # '6901710' yet another one with different size
 
-                        s_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
-                        p_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_p.txt')
+                            s_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
+                            p_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_p.txt')
 
-                        s_prof[1:,:][s_prof[1:,:]>smax_check] = -1
-                        s_prof[1:,:][s_prof[1:,:]<smin_check] = 'NaN'
+                            s_prof[1:,:][s_prof[1:,:]>smax_check] = -1
+                            s_prof[1:,:][s_prof[1:,:]<smin_check] = 'NaN'
 
-                        #sys.exit()
-                        pres = p_prof[0,:]
-                        sec  = np.array(range(1,np.shape(p_prof)[0]+2))
+                            #sys.exit()
+                            pres = p_prof[0,:]
+                            sec  = np.array(range(1,np.shape(p_prof)[0]+2))
 
-                        #sal  = sprof[1:,:]
-                        #sal_m = np.ma.masked_invalid(s_prof[1:,:])
-                        #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
+                            #sal  = sprof[1:,:]
+                            #sal_m = np.ma.masked_invalid(s_prof[1:,:])
+                            #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
 
-                        plt.pcolor(sec,-pres,s_prof.T)
-                        plt.clim([33.5,35])
-                        plt.colorbar()
-                        plt.ylabel('Pressure (dbar)')
-                        plt.xlabel('Distance (Km)')
+                            plt.pcolor(sec,-pres,s_prof.T)
+                            plt.clim([33.5,35])
+                            plt.colorbar()
+                            plt.ylabel('Pressure (dbar)')
+                            plt.xlabel('Distance (Km)')
 
-                        plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
-                        plt.savefig(sdir+prof.split('_')[0][1:]+'.png',dpi=300)
-                        plt.close()
+                            plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
+                            plt.savefig(sdir+prof.split('_')[0][1:]+'.png',dpi=300)
+                            plt.close()
 
             else:
 
