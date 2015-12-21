@@ -1,3 +1,9 @@
+# argoview.py
+#
+# gets and plots Argo floats profiles for a given region and time period
+# initial release- dec2015
+#
+
 import numpy as np
 import matplotlib.pyplot as plt
 import netCDF4 as nc
@@ -5,26 +11,9 @@ import os
 import datetime
 import os.path
 import sys
-import math
 import seawater as sw
+import math
 from mpl_toolkits.basemap import Basemap
-
-# def geo_dist(lat1, long1, lat2, long2):
-#
-#     deg2rad = math.pi/180.0 # Convert latitude and longitude to spherical coordinates in radians
-#
-#     phi1 = (90.0 - lat1)*deg2rad # phi = 90 - latitude
-#     phi2 = (90.0 - lat2)*deg2rad
-#
-#     theta1 = long1*deg2rad # theta = longitude
-#     theta2 = long2*deg2rad
-#
-#     # Compute spherical distance from spherical coordinates
-#     cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
-#            math.cos(phi1)*math.cos(phi2))
-#     arc = math.acos( cos )
-#
-#     return arc
 
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
@@ -51,6 +40,10 @@ tdir2    = 'argo.trajectories/'
 
 # ROI boundaries latN, latS, lonW, lonE
 bound = (-35,-70,-105,-35)
+
+# gross sanity check - max/min accepted values for variables
+smin_check = 20
+smax_check = 40
 
 deg = u'\N{DEGREE SIGN}'
 
@@ -108,7 +101,6 @@ else: # check the one you have is up-to-date
 # search for argo floats in ROI
 for ii in range (1,31):
 
-    # specify date
     d = datetime.datetime.now()
     cyy = getattr(d,'year')
     cmm = getattr(d,'month')
@@ -116,9 +108,11 @@ for ii in range (1,31):
     cmm = 11
     cdd = ii
 
-    print 'Searching for Argo profiles in ROI from '+str(cyy)+'/'+str(cmm)+'/'+str(cdd)
+    if os.path.exists(fidx_tmp):
+        print 'current Argo file exists, execution stopped...'
+#        sys.exit()
 
-    # find profiles in Argo index file from specified date and write to tmp file
+    # get new profiles metadata
     os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
 
     f = open(fidx_tmp,'r')
@@ -128,13 +122,11 @@ for ii in range (1,31):
     lon   = []
     prid  = []
 
-    # iterate through profiles from specified date, and find lat, lon and prid
     for line in f:
         clat = float(line.split(',')[2])
         clon = float(line.split(',')[3])
         cprid = str(str(line.split('/')[3]).split('.nc')[0])
 
-        # extract profiles in ROI and save lat, lon, prid
         if clat < bound[0] and clat > bound[1] and clon > bound[2] and clon < bound[3]:
             lat.append(clat)
             lon.append(clon)
@@ -143,7 +135,6 @@ for ii in range (1,31):
             d = d+' '+server1+'dac/'+line.split(',')[0]
 
     f.close()
-
 
     if fcnt == 0:
         print 'no new floats profiles available'
@@ -155,6 +146,7 @@ for ii in range (1,31):
         os.chdir('../')
 
         print 'making float location figure...'
+
         # basemap plot - location of new profiles
         # llcrnrlat,llcrnrlon,urcrnrlat,urcrnrlon: are the lat/lon values of the lower left and upper right corners of the map.
         m = Basemap(llcrnrlon=-140.,llcrnrlat=-70.,urcrnrlon=-40.,urcrnrlat=-20.,
@@ -188,8 +180,6 @@ for ii in range (1,31):
         print 'Reading and plotting individual profiles'
         for prof in prid: # read and plot individual profiles
 
-#            print prof+'.nc'
-
             arpr = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
             s = arpr.variables['PSAL'][:]#.compressed()
             p = arpr.variables['PRES'][:]#.compressed()
@@ -210,10 +200,10 @@ for ii in range (1,31):
 
                     # create float profile flie with p, t, s
                     with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%4d',newline='\r\n')
-                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.1f',newline='\r\n')
+                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
+                        np.savetxt(f_handle, t, delimiter=' ',fmt='%3.2f',newline='\r\n')
                     with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
-                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5d',newline='\r\n')
+                        np.savetxt(f_handle, p, delimiter=' ',fmt='%5.1f',newline='\r\n')
                         np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 else:
@@ -264,11 +254,7 @@ for ii in range (1,31):
                         if ii == 0:
                             tkm.append(0)
                         else:
-                            if tlat[ii-1]!=tlat[ii] or tlon[ii-1]!=tlon[ii]:
-                                tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
-                                # tkm.append(6373*geo_dist(tlat[ii-1],tlon[ii-1],tlat[ii],tlon[ii])+tkm[-1])
-                            else:
-                                tkm.append(tkm[-1])
+                            tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
                         ii=ii+1
                     f1.close()
 
@@ -283,12 +269,12 @@ for ii in range (1,31):
                     lon = geb.variables['lon'][:]
                     lat = geb.variables['lat'][:]
 
+                    # plot float trajectory
                     m.bluemarble()
                     parallels = np.arange(0.,-90,-0.2)
                     meridians = np.arange(180.,360.,0.2)
                     m.drawparallels(parallels,labels=[1,0,0,0],fontsize=10)
                     m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=10)
-
                     x, y = m(tlon,tlat)
                     m.scatter(x,y,10,marker='o',color='r')
                     m.plot(x,y,'r-.')
@@ -308,9 +294,31 @@ for ii in range (1,31):
                         plt.text(xpt+1000, ypt+500, label,color='w',size='8')
 
                     plt.title("Argo profile: "+str(prof.split('_')[0][1:]))
-
                     plt.savefig(tdir+prof.split('_')[0][1:]+'.png',dpi=300)
                     plt.close()
+
+                    # plot section
+                    # sprof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
+                    #
+                    # sprof[1:,:][sprof[1:,:]>smax_check] = -1
+                    # sprof[1:,:][sprof[1:,:]<smin_check] = 'NaN'
+                    #
+                    # pres = sprof[0,:]
+                    # sec  = np.array([1,2,3])
+                    # #sal  = sprof[1:,:]
+                    #
+                    # sal_m = np.ma.masked_invalid(sprof[1:,:])
+                    #
+                    # #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
+                    # plt.pcolor(sec,-sprof[0,:],salm.T)
+                    # plt.clim([33.5,35])
+                    # plt.colorbar()
+                    # plt.ylabel('Pressure (dbar)')
+                    # plt.xlabel('Distance (Km)')
+                    #
+                    # plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
+                    # plt.savefig(sdir2+prof.split('_')[0][1:]+'.png',dpi=300)
+                    # plt.close()
 
             else:
 
