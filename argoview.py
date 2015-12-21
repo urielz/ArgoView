@@ -12,7 +12,6 @@ import datetime
 import os.path
 import sys
 import math
-import seawater as sw
 from mpl_toolkits.basemap import Basemap
 
 # ARGO float repositories - tries server1 first
@@ -98,7 +97,6 @@ else: # check the one you have is up-to-date
 # search for argo floats in ROI
 for ii in range (1,31):
 
-    # specify date
     d = datetime.datetime.now()
     cyy = getattr(d,'year')
     cmm = getattr(d,'month')
@@ -106,9 +104,11 @@ for ii in range (1,31):
     cmm = 11
     cdd = ii
 
-    print 'Searching for Argo profiles in ROI from '+str(cyy)+'/'+str(cmm)+'/'+str(cdd)
+    if os.path.exists(fidx_tmp):
+        print 'current Argo file exists, execution stopped...'
+#        sys.exit()
 
-    # find profiles in Argo index file from specified date and write to tmp file
+    # get new profiles metadata
     os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
 
     f = open(fidx_tmp,'r')
@@ -118,13 +118,11 @@ for ii in range (1,31):
     lon   = []
     prid  = []
 
-    # iterate through profiles from specified date, and find lat, lon and prid
     for line in f:
         clat = float(line.split(',')[2])
         clon = float(line.split(',')[3])
         cprid = str(str(line.split('/')[3]).split('.nc')[0])
 
-        # extract profiles in ROI and save lat, lon, prid
         if clat < bound[0] and clat > bound[1] and clon > bound[2] and clon < bound[3]:
             lat.append(clat)
             lon.append(clon)
@@ -134,16 +132,13 @@ for ii in range (1,31):
 
     f.close()
 
-
     if fcnt == 0:
         print 'no new floats profiles available'
     else:
-        print str(fcnt)+' profiles floats found... downloading ...'
-        # download profiles on spec day in ROI
         os.system('ftp -V '+d)
         os.system('mv *.nc ./'+pdir2)
+        print str(fcnt)+' profile floats retrieved'
 
-        print 'making figures'
         # basemap plot - location of new profiles
         # llcrnrlat,llcrnrlon,urcrnrlat,urcrnrlon: are the lat/lon values of the lower left and upper right corners of the map.
         m = Basemap(llcrnrlon=-140.,llcrnrlat=-70.,urcrnrlon=-40.,urcrnrlat=-20.,
@@ -187,7 +182,7 @@ for ii in range (1,31):
                 f1.close()
                 i = i + 1
 
-                if os.system('grep -q '+prof.split('_')[0][1:]+' '+sidx)!=0: # check if float is in database
+                if os.system('grep '+prof.split('_')[0][1:]+' '+sidx)!=0: # check if float is in database
                     f_upd = 0
                     f.write(prof.split('_')[0][1:]+'\n') # new float
 
