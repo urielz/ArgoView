@@ -38,6 +38,9 @@ server2  = 'ftp://ftp.ifremer.fr/ifremer/argo'
 
 server = server1
 
+# GEBCO 30'' file name
+gebf    = 'GEBCO_2014_2D_-105.0_-70.0_-35.0_-30.0.nc'
+
 # default file names
 fidx     = 'ar_index_global_prof.txt'  # argo index file
 fidx_tmp = 'ar_index_global_prof_tmp.txt'
@@ -153,10 +156,11 @@ for ii in range (1,31):
     else:
         print str(fcnt)+' profiles floats found... downloading ...'
         # download profiles on spec day in ROI
+        os.chdir(pdir2)
         os.system('ftp -V '+d)
-        os.system('mv *.nc ./'+pdir2)
+        os.chdir('../')
 
-        print 'making figures'
+        print 'making float location figure...'
         # basemap plot - location of new profiles
         # llcrnrlat,llcrnrlon,urcrnrlat,urcrnrlon: are the lat/lon values of the lower left and upper right corners of the map.
         m = Basemap(llcrnrlon=-140.,llcrnrlat=-70.,urcrnrlon=-40.,urcrnrlat=-20.,
@@ -186,26 +190,31 @@ for ii in range (1,31):
         f = open(sidx, 'a')
 
         i = 0
+
+        print 'Reading and plotting individual profiles'
         for prof in prid: # read and plot individual profiles
 
 #            print prof+'.nc'
 
-            geb = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
-            s = geb.variables['PSAL'][:]#.compressed()
-            p = geb.variables['PRES'][:]#.compressed()
-            t = geb.variables['TEMP'][:]#.compressed()
+            arpr = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
+            s = arpr.variables['PSAL'][:]#.compressed()
+            p = arpr.variables['PRES'][:]#.compressed()
+            t = arpr.variables['TEMP'][:]#.compressed()
 
             if np.size(p)>0: # profile has valid data
 
-                f1 = open (tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
-                f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+'\n') # update trajectory file
+                # update trajectory file
+                f1 = open(tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
+                f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+'\n')
                 f1.close()
                 i = i + 1
 
-                if os.system('grep -q '+prof.split('_')[0][1:]+' '+sidx)!=0: # check if float is in database
-                    f_upd = 0
-                    f.write(prof.split('_')[0][1:]+'\n') # new float
+                if os.system('grep -q '+prof.split('_')[0][1:]+' '+sidx)!=0:
+                    # float is not already in sections database
+                    f_upd = 0 # don't make trajectory plot for single time!
+                    f.write(prof.split('_')[0][1:]+'\n') # add float to database
 
+                    # create float profile flie with p, t, s
                     with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
                         np.savetxt(f_handle, p, delimiter=' ',fmt='%4d',newline='\r\n')
                         np.savetxt(f_handle, t, delimiter=' ',fmt='%3.1f',newline='\r\n')
@@ -213,14 +222,16 @@ for ii in range (1,31):
                         np.savetxt(f_handle, p, delimiter=' ',fmt='%5d',newline='\r\n')
                         np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
 
-                else: # float in database
-                    f_upd = 1 # update plots
+                else:
+                    # float in database
+                    f_upd = 1 # yes, make trajectory plots
 
                     with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
                         np.savetxt(f_handle, t, delimiter=' ',fmt='%3.1f',newline='\r\n')
                     with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
                         np.savetxt(f_handle, s, delimiter=' ',fmt='%3.2f',newline='\r\n')
 
+                # make profile plot
                 fig = plt.figure(1,facecolor='white',edgecolor='black')
                 fig.set_figwidth=180
                 fig.set_figheight=6
@@ -242,11 +253,11 @@ for ii in range (1,31):
                 plt.savefig(pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'/'+prof+'_' +'%02d' %cmm+'%02d' %cdd+'%02d' %cyy+'.png',dpi=300)
                 plt.close()
 
+                # only make trajectory plot if more than 1 profile for float
                 if f_upd == 1:
 
-                    # float trajectory
-
-                    f1 = open (tdir2+prof.split('_')[0][1:]+'_traj.txt','r')
+                    # open trajectory file for this float
+                    f1 = open(tdir2+prof.split('_')[0][1:]+'_traj.txt','r')
                     tlat = []
                     tlon = []
                     tcnt = []
@@ -267,8 +278,16 @@ for ii in range (1,31):
                         ii=ii+1
                     f1.close()
 
-                    m = Basemap(projection='merc',llcrnrlat=max(tlat)+0.4,urcrnrlat=min(tlat)-0.4,
-                    llcrnrlon=min(tlon)-0.4,urcrnrlon=max(tlon)+0.4)
+                    # make trajectory plot for this float
+                    dlon = 0.4
+                    dlat = 0.4
+                    m = Basemap(projection='merc',llcrnrlat=max(tlat)+dlat,urcrnrlat=min(tlat)-dlat,
+                    llcrnrlon=min(tlon)-dlon,urcrnrlon=max(tlon)+dlon)
+
+                    geb  = nc.Dataset(gebf)
+                    topo = geb.variables['elevation'][:]
+                    lon = geb.variables['lon'][:]
+                    lat = geb.variables['lat'][:]
 
                     m.bluemarble()
                     parallels = np.arange(0.,-90,-0.2)
@@ -279,6 +298,13 @@ for ii in range (1,31):
                     x, y = m(tlon,tlat)
                     m.scatter(x,y,10,marker='o',color='r')
                     m.plot(x,y,'r-.')
+
+                    lon0 = np.argmin(np.abs(np.min(tlon)-dlon-lon))
+                    lon1 = np.argmin(np.abs(np.max(tlon)+dlon-lon))
+                    lat0 = np.argmin(np.abs(np.min(tlat)-dlat-lat))
+                    lat1 = np.argmin(np.abs(np.max(tlat)+dlat-lat))
+#                    x, y = m(lon[lon0:lon1],lat[lat0:lat1])
+#                    m.contour(x,y,topo[lat0:lat1,lon0:lon1],'k')
 
                     lab = []
                     for j in range(1,np.size(tkm)+1):
