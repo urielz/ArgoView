@@ -27,6 +27,7 @@ from scipy.interpolate import griddata
 from plot_section import plot_section
 
 # initial/final dates
+
 t0 =  date.toordinal(date(2015,11,07))
 t1 =  date.toordinal(date(2015,12,21))
 
