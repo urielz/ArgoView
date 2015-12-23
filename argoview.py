@@ -1,7 +1,14 @@
 # argoview.py
 #
 # gets and plots Argo floats profiles for a given region and time period
-# initial release- dec2015
+#
+# output:
+# - Daily float locations map
+# - Plot of single profiles (T and S)
+# - Trajectory map for each float
+# - Section map (T and S) //wip//
+#
+# Initial release: December 2015
 #
 
 import numpy as np
@@ -15,10 +22,16 @@ import sys
 import seawater as sw
 import math
 from mpl_toolkits.basemap import Basemap
+from scipy.interpolate import griddata
+
+from plot_section import plot_section
 
 # initial/final dates
-t0 =  date.toordinal(date(2015,9,1))
+t0 =  date.toordinal(date(2015,11,07))
 t1 =  date.toordinal(date(2015,12,21))
+
+# Region of intereset (ROI) boundaries latN, latS, lonW, lonE
+bound = (-35,-70,-105,-35)
 
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
@@ -44,9 +57,6 @@ tdir     = odir+'fig.trajectories/'
 pdir2    = odir+'argo.profiles/'
 sdir2    = odir+'argo.sections/'
 tdir2    = odir+'argo.trajectories/'
-
-# ROI boundaries latN, latS, lonW, lonE
-bound = (-35,-70,-105,-35)
 
 # gross sanity check - max/min accepted values for variables
 smin_check = 20
@@ -106,8 +116,8 @@ else: # check the one you have is up-to-date
         print 'Your Argo index file is up-to-date.'
 
 
-# search for argo floats in ROI
-for ii in range (t0,t1):
+# search for argo floats in region and time period of interest
+for ii in range (t0,t1): # loop time
 
     cdd = date.fromordinal(ii).day
     cmm = date.fromordinal(ii).month
@@ -118,10 +128,6 @@ for ii in range (t0,t1):
     # cyy = getattr(d,'year')
     # cmm = getattr(d,'month')
     # cdd = getattr(d,'day')
-
-    if os.path.exists(fidx_tmp):
-        print 'current Argo file exists, execution stopped...'
-#        sys.exit()
 
     # get new profiles metadata
     os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
@@ -195,9 +201,6 @@ for ii in range (t0,t1):
             s = arpr.variables['PSAL'][0,:]#.compressed()
             p = arpr.variables['PRES'][0,:]#.compressed()
             t = arpr.variables['TEMP'][0,:]#.compressed()
-            # s = arpr.variables['PSAL'][:]#.compressed()
-            # p = arpr.variables['PRES'][:]#.compressed()
-            # t = arpr.variables['TEMP'][:]#.compressed()
 
             p_goods = p != 99999
 
@@ -320,33 +323,10 @@ for ii in range (t0,t1):
 
                     # plot section
 
-                    do_sec = 0
+                    do_sec = 1
                     if do_sec == 1:
-                        if prof.split('_')[0][1:] != '6901654': # '6901710' yet another one with different size
-
-                            s_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
-                            p_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_p.txt')
-
-                            s_prof[1:,:][s_prof[1:,:]>smax_check] = -1
-                            s_prof[1:,:][s_prof[1:,:]<smin_check] = 'NaN'
-
-                            #sys.exit()
-                            pres = p_prof[0,:]
-                            sec  = np.array(range(1,np.shape(p_prof)[0]+2))
-
-                            #sal  = sprof[1:,:]
-                            #sal_m = np.ma.masked_invalid(s_prof[1:,:])
-                            #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
-
-                            plt.pcolor(sec,-pres,s_prof.T)
-                            plt.clim([33.5,35])
-                            plt.colorbar()
-                            plt.ylabel('Pressure (dbar)')
-                            plt.xlabel('Distance (Km)')
-
-                            plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
-                            plt.savefig(sdir+prof.split('_')[0][1:]+'.png',dpi=300)
-                            plt.close()
+                        plot_section()
+                        do_sec = 0
 
             else:
 
