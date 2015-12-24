@@ -165,17 +165,23 @@ for ii in range (config.t0,config.t1): # loop time
                     #print ('making trajectory plot for float '+prof.split('_')[0][1:])
 
                     fig1 = plt.figure(2,figsize=(9,5),dpi=150,facecolor='white')
-                    ax10 = fig1.add_axes([0.05, 0.6, 0.35, 0.35])
+                    ax10 = fig1.add_axes([0.05, 0.65, 0.35, 0.3])
 
                     plot_trajectory(tlat,tlon,tkm,prof.split('_')[0][1:])
 
                     # make section plot
-#                    print ('making section plot for float '+prof.split('_')[0][1:])
-                    fig = plt.figure(1,facecolor='white',edgecolor='black')
-                    fig.set_figwidth=180
-                    fig.set_figheight=6
-                    ax = fig.add_subplot(2, 1, 1)
-                    plot_section(prof.split('_')[0][1:])
+
+                    #print ('making section plot for float '+prof.split('_')[0][1:])
+                    #fig = plt.figure(1,facecolor='white',edgecolor='black')
+                    #fig.set_figwidth=180
+                    #fig.set_figheight=6
+                    #ax = fig.add_subplot(2, 1, 1)
+                    ax10 = fig1.add_axes([0.05, 0.35, 0.35, 0.25])
+                    plot_section(prof.split('_')[0][1:],0) # Temperature
+
+                    ax10 = fig1.add_axes([0.05, 0.05, 0.35, 0.25])
+                    plot_section(prof.split('_')[0][1:],1) # Salinity
+
                     plt.savefig(config.sdir+prof.split('_')[0][1:]+'.png',dpi=300)
                     plt.close()
 
