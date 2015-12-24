@@ -47,7 +47,9 @@ if not os.path.exists(config.sdir2): os.system('mkdir '+config.sdir2)
 if not os.path.exists(config.tdir2): os.system('mkdir '+config.tdir2)
 
 # Prelim 2: check timestamp of index file and decide whether to download a new one
-#get_index(server)
+response = raw_input("Do you want to update your index file? y/n ")
+if response=='y':
+    get_index(server)
 
 # Main loop: search for Argo floats in region and time period of interest
 for ii in range (config.t0,config.t1): # loop time
