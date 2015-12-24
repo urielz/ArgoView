@@ -89,6 +89,8 @@ else: # check the one you have is up-to-date
 # search for argo floats in region and time period of interest
 for ii in range (config.t0,config.t1): # loop time
 
+    print ('Looking for Argo profiles for '+str(date.fromordinal(ii)))
+
     cdd = date.fromordinal(ii).day
     cmm = date.fromordinal(ii).month
     cyy = date.fromordinal(ii).year
@@ -122,7 +124,12 @@ for ii in range (config.t0,config.t1): # loop time
         print str(fcnt)+' profiles found... downloading ...'
         # download profiles on spec day in ROI
         os.chdir(config.pdir2)
-        os.system('ftp -V '+d)
+        arfiles = d.split(' ')
+        for i in range(1,np.size(arfiles)):
+            fail = os.system('ftp -V '+arfiles[i])
+            if fail:
+                print ('Failed to download '+arfiles[i])  #To do: decide what to do here
+
         os.chdir('../../')
 
         # make daily map with locations of new profiles
