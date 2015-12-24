@@ -158,6 +158,9 @@ for ii in range (config.t0,config.t1): # loop time
 
                     # make trajectory plot for this float
                     print ('making trajectory plot for float '+prof.split('_')[0][1:])
+
+                    fig1 = plt.figure(2,figsize=(9,5),dpi=150,facecolor='white')
+                    ax10 = fig1.add_axes([0.05, 0.6, 0.35, 0.35])
                     plot_trajectory(tlat,tlon,tkm,prof.split('_')[0][1:])
 
                     # make section plot
