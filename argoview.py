@@ -28,6 +28,7 @@ from plot_locations import plot_locations
 from plot_profiles import plot_profiles
 from plot_trajectory import plot_trajectory
 from plot_section import plot_section
+from get_index import get_index
 
 #import py_compile
 #py_compile.compile('config.py')
@@ -35,7 +36,7 @@ from plot_section import plot_section
 # choose server
 server = config.server1
 
-# check dir structure and make directories if required
+# Prelim 1: check dir structure and make directories if required
 if not os.path.exists(config.odir): os.system('mkdir '+config.odir)
 if not os.path.exists(config.mdir): os.system('mkdir '+config.mdir)
 if not os.path.exists(config.pdir): os.system('mkdir '+config.pdir)
@@ -45,48 +46,10 @@ if not os.path.exists(config.pdir2): os.system('mkdir '+config.pdir2)
 if not os.path.exists(config.sdir2): os.system('mkdir '+config.sdir2)
 if not os.path.exists(config.tdir2): os.system('mkdir '+config.tdir2)
 
+# Prelim 2: check timestamp of index file and decide whether to download a new one
+get_index(server)
 
-# check if local Argo index file is up to date
-if not os.path.exists(config.fidx): # download Argo index file
-    cmd = 'ftp -V '+server+config.fidx+'.gz'
-    print cmd
-    print 'Downloading Argo index file. This may take some time... '
-    os.system(cmd)  # get updated argo index file
-    cmd = 'gunzip -f '+config.fidx+'.gz'
-    os.system(cmd)
-else: # check the one you have is up-to-date
-    cmd = 'curl -r 0-500 '+server+'ar_index_global_prof.txt > tmp_header.txt'
-    print 'Checking timestamp of Argo index file on server... '
-    print cmd
-    os.system(cmd)
-
-    f = open('tmp_header.txt','r')
-    for line in f:
-        if 'Date of update' in line: dlineServer=line
-    f.close()
-
-    f = open(config.fidx,'r')
-    for line in f:
-        if 'Date of update' in line: dlineLocal=line
-    f.close()
-
-    uptodate = dlineServer == dlineLocal
-
-    cmd = 'rm tmp_header.txt'
-    os.system(cmd)
-
-    if not uptodate:
-        cmd = 'ftp -V '+server+config.fidx+'.gz'
-        print 'Updating local Argo index file. This may take some time... '
-        print cmd
-        os.system(cmd)  # get updated argo index file
-        cmd = 'gunzip -f '+config.fidx+'.gz'
-        os.system(cmd)
-    else:
-        print 'The local Argo index file is up-to-date.'
-
-
-# search for argo floats in region and time period of interest
+# Main loop: search for Argo floats in region and time period of interest
 for ii in range (config.t0,config.t1): # loop time
 
     print ('Looking for Argo profiles for '+str(date.fromordinal(ii)))
