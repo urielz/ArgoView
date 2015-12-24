@@ -182,7 +182,7 @@ for ii in range (config.t0,config.t1): # loop time
                     tlon.append(lon[i])
                     f1.close()
                     f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
-                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' %5.2f' %tkm[-1]+'\n')
+                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' %-5.2f' %tkm[-1]+'\n')
                     f1.close()
                     i = i + 1
 
