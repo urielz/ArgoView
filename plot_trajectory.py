@@ -51,7 +51,7 @@ def plot_trajectory(tlat,tlon,tkm,profname):
     del x, y
 
     plt.title('Argo profile: '+str(profname))
-    plt.savefig(config.tdir+profname+'.png',dpi=300)
-    plt.close()
+    #plt.savefig(config.tdir+profname+'.png',dpi=300)
+    #plt.close()
 
     return;

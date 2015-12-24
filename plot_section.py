@@ -3,7 +3,6 @@ def plot_section(profname):
     import config
     import numpy as np
     import matplotlib.pyplot as plt
-    import seawater as sw
     from scipy.interpolate import griddata
 
     f_p  = open(config.sdir2+profname+'_p.txt','r')
@@ -11,7 +10,7 @@ def plot_section(profname):
     f_t  = open(config.sdir2+profname+'_t.txt','r')
     f_xy = open(config.tdir2+profname+'_traj.txt','r')
 
-    p_arr, s_arr, t_arr, lat_arr, lon_arr = ([] for i in range(5))
+    p_arr, s_arr, t_arr, lat_arr, lon_arr, dist_arr = ([] for i in range(6))
 
     p_cnt = 0
     for p_line in f_p: # Loop over lines and extract variables of interest
@@ -21,19 +20,20 @@ def plot_section(profname):
         t_line = f_xy.readline().strip().split()
         lat_arr.append(float(t_line[1]))
         lon_arr.append(float(t_line[2]))
+        dist_arr.append(float(t_line[3]))
 
         k = 0
-        if p_cnt == 0:
-            dist = 0.
-        else:
-            dist_prev = dist
-            dist = sw.dist((lat_arr[p_cnt],lat_arr[p_cnt-1]), (lon_arr[p_cnt],lon_arr[p_cnt-1]), units='km')[0] + dist_prev
+        # if p_cnt == 0:
+        #     dist = 0.
+        # else:
+        #     dist_prev = dist
+        #     dist = sw.dist((lat_arr[p_cnt],lat_arr[p_cnt-1]), (lon_arr[p_cnt],lon_arr[p_cnt-1]), units='km')[0] + dist_prev
 
         for i in p_line:
             if float(i)<9000:
                 p_arr.append(float(i))
                 s_arr.append(float(s_line[k]))
-                t_arr.append(dist)
+                t_arr.append(dist_arr[-1])
                 k = k + 1
         if p_cnt == 0:
             np_elem = np.size(p_arr)

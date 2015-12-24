@@ -37,5 +37,7 @@ gebf    = 'GEBCO_2014_2D_-105.0_-70.0_-35.0_-30.0.nc'
 fillval    = 99999.
 smin_check = 20.
 smax_check = 40.
+tmin_check = -5.
+tmax_check = 35.
 
 deg = u'\N{DEGREE SIGN}'
