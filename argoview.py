@@ -6,7 +6,7 @@
 # - Daily float locations map
 # - Plot of single profiles (T and S)
 # - Trajectory map for each float
-# - Section map (T and S) //wip//
+# - Section map (T and S)
 #
 # Initial release: December 2015
 #
@@ -22,317 +22,195 @@ import sys
 import seawater as sw
 import math
 from mpl_toolkits.basemap import Basemap
-from scipy.interpolate import griddata
 
+import config
+from plot_locations import plot_locations
+from plot_profiles import plot_profiles
+from plot_trajectory import plot_trajectory
 from plot_section import plot_section
 
-# initial/final dates
+#import py_compile
+#py_compile.compile('config.py')
 
-t0 =  date.toordinal(date(2015,11,07))
-t1 =  date.toordinal(date(2015,12,21))
-
-# Region of intereset (ROI) boundaries latN, latS, lonW, lonE
-bound = (-35,-70,-105,-35)
-
-# ARGO float repositories - tries server1 first
-server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
-server2  = 'ftp://ftp.ifremer.fr/ifremer/argo'
-
-server = server1
-
-# GEBCO 30'' file name
-gebf    = 'GEBCO_2014_2D_-105.0_-70.0_-35.0_-30.0.nc'
-
-odir = 'out/'
-
-# default file names
-fidx     = 'ar_index_global_prof.txt'  # argo index file
-fidx_tmp = odir+'ar_index_global_prof_tmp.txt'
-sidx     = odir+'ar_index_sections.txt'
-
-# directories for data (argo.*) and figures (fig.*)
-mdir     = odir+'fig.daily_maps/'
-pdir     = odir+'fig.daily_profiles/'
-sdir     = odir+'fig.sections/'
-tdir     = odir+'fig.trajectories/'
-pdir2    = odir+'argo.profiles/'
-sdir2    = odir+'argo.sections/'
-tdir2    = odir+'argo.trajectories/'
-
-# gross sanity check - max/min accepted values for variables
-smin_check = 20
-smax_check = 40
-
-deg = u'\N{DEGREE SIGN}'
+# choose server
+server = config.server1
 
 # check dir structure and make directories if required
-if not os.path.exists(odir): os.system('mkdir '+odir)
-if not os.path.exists(mdir): os.system('mkdir '+mdir)
-if not os.path.exists(pdir): os.system('mkdir '+pdir)
-if not os.path.exists(sdir): os.system('mkdir '+sdir)
-if not os.path.exists(tdir): os.system('mkdir '+tdir)
-if not os.path.exists(pdir2): os.system('mkdir '+pdir2)
-if not os.path.exists(sdir2): os.system('mkdir '+sdir2)
-if not os.path.exists(tdir2): os.system('mkdir '+tdir2)
+if not os.path.exists(config.odir): os.system('mkdir '+config.odir)
+if not os.path.exists(config.mdir): os.system('mkdir '+config.mdir)
+if not os.path.exists(config.pdir): os.system('mkdir '+config.pdir)
+if not os.path.exists(config.sdir): os.system('mkdir '+config.sdir)
+if not os.path.exists(config.tdir): os.system('mkdir '+config.tdir)
+if not os.path.exists(config.pdir2): os.system('mkdir '+config.pdir2)
+if not os.path.exists(config.sdir2): os.system('mkdir '+config.sdir2)
+if not os.path.exists(config.tdir2): os.system('mkdir '+config.tdir2)
 
-# update argo index file
-# get last file update time
 
-if not os.path.exists(fidx): # download Argo index file
-    cmd = 'ftp -V '+server+fidx+'.gz'
+# check if local Argo index file is up to date
+if not os.path.exists(config.fidx): # download Argo index file
+    cmd = 'ftp -V '+server+config.fidx+'.gz'
     print cmd
     print 'Downloading Argo index file. This may take some time... '
     os.system(cmd)  # get updated argo index file
-    cmd = 'gunzip -f '+fidx+'.gz'
+    cmd = 'gunzip -f '+config.fidx+'.gz'
     os.system(cmd)
 else: # check the one you have is up-to-date
-    cmd = 'curl -r 0-500 '+server+'ar_index_global_prof.txt > header.txt'
+    cmd = 'curl -r 0-500 '+server+'ar_index_global_prof.txt > tmp_header.txt'
     print 'Checking timestamp of Argo index file on server... '
     print cmd
     os.system(cmd)
 
-    f = open('header.txt','r')
+    f = open('tmp_header.txt','r')
     for line in f:
         if 'Date of update' in line: dlineServer=line
     f.close()
 
-    f = open(fidx,'r')
+    f = open(config.fidx,'r')
     for line in f:
         if 'Date of update' in line: dlineLocal=line
     f.close()
 
     uptodate = dlineServer == dlineLocal
 
-    cmd = 'rm header.txt'
+    cmd = 'rm tmp_header.txt'
     os.system(cmd)
 
     if not uptodate:
-        cmd = 'ftp -V '+server+fidx+'.gz'
-        print 'Updating your Argo index file. This may take some time... '
+        cmd = 'ftp -V '+server+config.fidx+'.gz'
+        print 'Updating local Argo index file. This may take some time... '
         print cmd
         os.system(cmd)  # get updated argo index file
-        cmd = 'gunzip -f '+fidx+'.gz'
+        cmd = 'gunzip -f '+config.fidx+'.gz'
         os.system(cmd)
     else:
-        print 'Your Argo index file is up-to-date.'
+        print 'The local Argo index file is up-to-date.'
 
 
 # search for argo floats in region and time period of interest
-for ii in range (t0,t1): # loop time
+for ii in range (config.t0,config.t1): # loop time
 
     cdd = date.fromordinal(ii).day
     cmm = date.fromordinal(ii).month
     cyy = date.fromordinal(ii).year
 
-    # daily forecast
-    # d = datetime.datetime.now()
-    # cyy = getattr(d,'year')
-    # cmm = getattr(d,'month')
-    # cdd = getattr(d,'day')
-
     # get new profiles metadata
-    os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
+    os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+config.fidx+' > '+config.fidx_tmp)
 
-    f = open(fidx_tmp,'r')
+    # check if new profiles are inside ROI
+    f = open(config.fidx_tmp,'r')
     fcnt = 0
     d = ''
-    lat   = []
-    lon   = []
-    prid  = []
+    lat, lon, prid  = ([] for i in range(3))
 
     for line in f:
         clat = float(line.split(',')[2])
         clon = float(line.split(',')[3])
         cprid = str(str(line.split('/')[3]).split('.nc')[0])
 
-        if clat < bound[0] and clat > bound[1] and clon > bound[2] and clon < bound[3]:
+        if clat < config.bound[0] and clat > config.bound[1] and clon > config.bound[2] and clon < config.bound[3]:
             lat.append(clat)
             lon.append(clon)
             prid.append(cprid)
             fcnt = fcnt + 1
-            d = d+' '+server1+'dac/'+line.split(',')[0]
+            d = d+' '+server+'dac/'+line.split(',')[0]
 
     f.close()
 
     if fcnt == 0:
-        print 'no new floats profiles available'
+        print ('No profiles available for '+str(cyy)+'/%02d' %cmm+'/%02d' %cdd+' inside the region of interest')
     else:
-        print str(fcnt)+' profiles floats found... downloading ...'
+        print str(fcnt)+' profiles found... downloading ...'
         # download profiles on spec day in ROI
-        os.chdir(pdir2)
+        os.chdir(config.pdir2)
         os.system('ftp -V '+d)
         os.chdir('../../')
 
-        print 'making float location figure...'
+        # make daily map with locations of new profiles
+        print ('making map with locations of new profiles...')
+        plot_locations(lon,lat,prid,cyy,cmm,cdd)
 
-        # basemap plot - location of new profiles
-        # llcrnrlat,llcrnrlon,urcrnrlat,urcrnrlon: are the lat/lon values of the lower left and upper right corners of the map.
-        m = Basemap(llcrnrlon=-140.,llcrnrlat=-70.,urcrnrlon=-40.,urcrnrlat=-20.,
-                    projection='lcc',lat_1=-30.,lat_2=-60.,lon_0=-90.,
-                    resolution ='l',area_thresh=1000.)
+        if not os.path.exists(config.pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd):
+            os.system('mkdir '+config.pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd)
 
-        m.bluemarble()
-        parallels = np.arange(0.,-90,-5.)
-        meridians = np.arange(180.,360.,15.)
-        m.drawparallels(parallels,labels=[1,0,0,0],fontsize=10)
-        m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=10)
-
-        x, y = m(lon,lat)
-        m.scatter(x,y,10,marker='o',color='r')
-
-        for label, xpt, ypt in zip(prid, x, y):
-            plt.text(xpt+40000, ypt+20000, label,color='w',size='6')
-
-        plt.title("Argo profiles - "+str(cmm)+'/'+str(cdd)+'/'+str(cyy))
-
-        plt.savefig('./'+mdir+'Argo_'+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'.png',dpi=300)
-        plt.close()
-
-        if not os.path.exists(pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd):
-            os.system('mkdir '+pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd)
-
-        f = open(sidx, 'a')
-
+        f = open(config.sidx, 'a')
         i = 0
 
-        print 'Reading and plotting individual profiles'
-        for prof in prid: # read and plot individual profiles
+        # read new profiles
+        for prof in prid:
 
-            arpr = nc.Dataset('./'+pdir2+'/'+prof+'.nc')
-            s = arpr.variables['PSAL'][0,:]#.compressed()
-            p = arpr.variables['PRES'][0,:]#.compressed()
-            t = arpr.variables['TEMP'][0,:]#.compressed()
+            arpr = nc.Dataset('./'+config.pdir2+'/'+prof+'.nc')
+            s = arpr.variables['PSAL'][0,:]
+            p = arpr.variables['PRES'][0,:]
+            t = arpr.variables['TEMP'][0,:]
 
-            p_goods = p != 99999
+            p_goods = p != config.fillval
 
             if np.size(p_goods)>0: # profile has valid data
 
-                # update trajectory file
-                f1 = open(tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
-                f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+'\n')
-                f1.close()
-                i = i + 1
-
-                if os.system('grep -q '+prof.split('_')[0][1:]+' '+sidx)!=0:
+                # check if float is new
+                if os.system('grep -q '+prof.split('_')[0][1:]+' '+config.sidx)!=0:
                     # float is not already in sections database
-                    f_upd = 0 # don't make trajectory plot for single time!
+                    f_upd = 0 # don't make trajectory and section plots for single time!
                     f.write(prof.split('_')[0][1:]+'\n') # add float to database
                 else:
                     # float in database
-                    f_upd = 1 # yes, make trajectory plots
+                    f_upd = 1 # yes, make trajectory and section plots
 
-                # create float profile flie with p, t, s
-                with open(sdir2+prof.split('_')[0][1:]+'_p.txt','a') as f_handle:
+                # update profile files
+                with open(config.sdir2+prof.split('_')[0][1:]+'_p.txt','a') as f_handle:
                     np.savetxt(f_handle, p.reshape(1,p.shape[0]), delimiter=' ',fmt='%5.1f',newline='\r\n')
-                with open(sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
+                with open(config.sdir2+prof.split('_')[0][1:]+'_t.txt','a') as f_handle:
                     np.savetxt(f_handle, t.reshape(1,t.shape[0]), delimiter=' ',fmt='%3.2f',newline='\r\n')
-                with open(sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
+                with open(config.sdir2+prof.split('_')[0][1:]+'_s.txt','a') as f_handle:
                     np.savetxt(f_handle, s.reshape(1,s.shape[0]), delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 # make profile plot
-                fig = plt.figure(1,facecolor='white',edgecolor='black')
-                fig.set_figwidth=180
-                fig.set_figheight=6
-                ax = fig.add_subplot(1, 2, 1)
-                ax.scatter(t,-p,edgecolor='r',color='r')
-                ax.set_title(prof)
-                plt.grid()
-                plt.ylim([-np.ceil(np.max(p)),0 ])
-                plt.xlabel('Temperature ('+deg+'C)')
-                plt.ylabel('Pressure (dbar)')
-                ax = fig.add_subplot(1, 2, 2)
-                ax.scatter(s,-p,edgecolor='b',color='b')
-                ax.set_title(prof)
-                plt.grid()
-                plt.ylim([-np.ceil(np.max(p)),0 ])
-                plt.xlabel('Salinity')
-                plt.ylabel('Pressure (dbar)')
-                fig.set_size_inches(18.5, 10.5)
-                plt.savefig(pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'/'+prof+'_' +'%02d' %cmm+'%02d' %cdd+'%02d' %cyy+'.png',dpi=300)
-                plt.close()
+                print ('making profile plots for float '+prof.split('_')[0][1:])
+                plot_profiles(prof,p,t,s,cyy,cmm,cdd)
 
-                # only make trajectory plot if more than 1 profile for float
-                if f_upd == 1:
+                if f_upd == 1: # only make trajectory and section plots if more than 1 profile for the float is available
 
                     # open trajectory file for this float
-                    f1 = open(tdir2+prof.split('_')[0][1:]+'_traj.txt','r')
-                    tlat = []
-                    tlon = []
-                    tcnt = []
-                    tkm  = []
-                    icnt   = 0
+                    f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','r')
+                    tlat, tlon, tkm = ([] for i in range(3))
                     for line in f1:
                         tlat.append(float(line.split(' ')[1]))
                         tlon.append(float(line.split(' ')[2]))
-                        tcnt.append(icnt)
-                        if icnt == 0:
-                            tkm.append(0)
-                        else:
-                            tkm.append(sw.dist((tlat[icnt-1],tlat[icnt]), (tlon[icnt-1],tlon[icnt]), units='km')[0]+tkm[-1])
-                        icnt=icnt+1
+                        tkm.append(float(line.split(' ')[3]))
+                    tkm.append(sw.dist((lat[i],tlat[-1]), (lon[i],tlon[-1]), units='km')[0]+tkm[-1])
+                    tlat.append(lat[i])
+                    tlon.append(lon[i])
                     f1.close()
+                    f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
+                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' '+str(tkm[-1])+'\n')
+                    f1.close()
+                    i = i + 1
 
                     # make trajectory plot for this float
-                    dlon = 0.4
-                    dlat = 0.4
-                    m = Basemap(projection='merc',llcrnrlat=max(tlat)+dlat,urcrnrlat=min(tlat)-dlat,
-                    llcrnrlon=min(tlon)-dlon,urcrnrlon=max(tlon)+dlon)
+                    print ('making trajectory plot for float '+prof.split('_')[0][1:])
+                    plot_trajectory(tlat,tlon,tkm,prof.split('_')[0][1:])
 
-                    geb  = nc.Dataset(gebf)
-                    topo = geb.variables['elevation'][:]
-                    glon = geb.variables['lon'][:]
-                    glat = geb.variables['lat'][:]
-
-                    # plot float trajectory
-                    m.bluemarble()
-                    parallels = np.arange(0.,-90,-0.2)
-                    meridians = np.arange(180.,360.,0.2)
-                    m.drawparallels(parallels,labels=[1,0,0,0],fontsize=10)
-                    m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=10)
-
-                    lon0 = np.argmin(np.abs(np.min(tlon)-dlon-glon))
-                    lon1 = np.argmin(np.abs(np.max(tlon)+dlon-glon))
-                    lat0 = np.argmin(np.abs(np.min(tlat)-dlat-glat))
-                    lat1 = np.argmin(np.abs(np.max(tlat)+dlat-glat))
-#                    dl = np.max
-                    [LON,LAT] = np.meshgrid(glon[lon0:lon1],glat[lat0:lat1]);
-                    [X,Y] = m(LON,LAT)
-                    # x, y = m(lon[lon0:lon1],lat[lat0:lat1])
-                    # [X,Y] = np.meshgrid(x,y)
-                    cmax = np.max(topo[lat0:lat1,lon0:lon1])
-                    cmin = np.min(topo[lat0:lat1,lon0:lon1])
-                    v = np.linspace(cmin,cmax,5)
-                    co = m.contour(X,Y,topo[lat0:lat1,lon0:lon1],v,colors='w',linestyles='solid')
-                    plt.clabel(co,inline=True,fmt='%1.0f',fontsize=10,colors='w')
-                    del X, Y
-
-                    x, y = m(tlon,tlat)
-                    m.scatter(x,y,10,marker='o',color='r')
-                    m.plot(x,y,'r-.')
-
-                    lab = []
-                    for j in range(1,np.size(tkm)+1):
-                        lab = lab + [str(j)+' - '+str(round(tkm[j-1]))+' km']
-
-                    for label, xpt, ypt in zip(lab, x, y):
-                        plt.text(xpt+1000, ypt+500, label,color='w',size='8')
-                    del x, y
-
-                    plt.title("Argo profile: "+str(prof.split('_')[0][1:]))
-                    plt.savefig(tdir+prof.split('_')[0][1:]+'.png',dpi=300)
+                    # make section plot
+                    print ('making section plot for float '+prof.split('_')[0][1:])
+                    fig = plt.figure(1,facecolor='white',edgecolor='black')
+                    fig.set_figwidth=180
+                    fig.set_figheight=6
+                    ax = fig.add_subplot(2, 1, 1)
+                    plot_section(prof.split('_')[0][1:])
+                    plt.savefig(config.sdir+prof.split('_')[0][1:]+'.png',dpi=300)
                     plt.close()
 
-                    # plot section
+                else: # no plots, just initialize trajectory file
 
-                    do_sec = 1
-                    if do_sec == 1:
-                        plot_section()
-                        do_sec = 0
+                    dist_ini = 0.
+                    f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
+                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' '+str(dist_ini)+'\n')
+                    f1.close()
+                    i = i + 1
 
             else:
-
-                print 'no valid data'
+                print ('No valid data in '+prof)
 
         f.close()
 
-    os.system('rm '+fidx_tmp)
+    os.system('rm '+config.fidx_tmp)
