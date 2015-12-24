@@ -102,7 +102,7 @@ for ii in range (config.t0,config.t1): # loop time
     f = open(config.fidx_tmp,'r')
     fcnt = 0
     d = ''
-    lat, lon, prid  = ([] for i in range(3))
+    lat, lon, prid  = ([] for k in range(3))
 
     for line in f:
         clat = float(line.split(',')[2])
@@ -179,17 +179,17 @@ for ii in range (config.t0,config.t1): # loop time
 
                     # open trajectory file for this float
                     f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','r')
-                    tlat, tlon, tkm = ([] for i in range(3))
+                    tlat, tlon, tkm = ([] for k in range(3))
                     for line in f1:
                         tlat.append(float(line.split(' ')[1]))
                         tlon.append(float(line.split(' ')[2]))
                         tkm.append(float(line.split(' ')[3]))
-                    tkm.append(sw.dist((lat[i],tlat[-1]), (lon[i],tlon[-1]), units='km')[0]+tkm[-1])
+                    tkm.append(float(sw.dist((lat[i],tlat[-1]), (lon[i],tlon[-1]), units='km')[0])+tkm[-1])
                     tlat.append(lat[i])
                     tlon.append(lon[i])
                     f1.close()
                     f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
-                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' '+str(tkm[-1])+'\n')
+                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' %-5.2f' %tkm[-1]+'\n')
                     f1.close()
                     i = i + 1
 
@@ -209,9 +209,10 @@ for ii in range (config.t0,config.t1): # loop time
 
                 else: # no plots, just initialize trajectory file
 
-                    dist_ini = 0.
+                    dist_ini = []
+                    dist_ini.append(0.0)
                     f1 = open(config.tdir2+prof.split('_')[0][1:]+'_traj.txt','a')
-                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' '+str(dist_ini)+'\n')
+                    f1.write('%02d' %cyy+'%02d' %cmm+'%02d' %cdd +' '+str(lat[i])+' '+str(lon[i])+' '+str(dist_ini[0])+'\n')
                     f1.close()
                     i = i + 1
 
