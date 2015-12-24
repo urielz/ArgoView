@@ -1,7 +1,14 @@
 # argoview.py
 #
 # gets and plots Argo floats profiles for a given region and time period
-# initial release- dec2015
+#
+# output:
+# - Daily float locations map
+# - Plot of single profiles (T and S)
+# - Trajectory map for each float
+# - Section map (T and S) //wip//
+#
+# Initial release: December 2015
 #
 
 import numpy as np
@@ -9,11 +16,23 @@ import matplotlib.pyplot as plt
 import netCDF4 as nc
 import os
 import datetime
+from datetime import date
 import os.path
 import sys
 import seawater as sw
 import math
 from mpl_toolkits.basemap import Basemap
+from scipy.interpolate import griddata
+
+from plot_section import plot_section
+
+# initial/final dates
+
+t0 =  date.toordinal(date(2015,11,07))
+t1 =  date.toordinal(date(2015,12,21))
+
+# Region of intereset (ROI) boundaries latN, latS, lonW, lonE
+bound = (-35,-70,-105,-35)
 
 # ARGO float repositories - tries server1 first
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
@@ -24,22 +43,21 @@ server = server1
 # GEBCO 30'' file name
 gebf    = 'GEBCO_2014_2D_-105.0_-70.0_-35.0_-30.0.nc'
 
+odir = 'out/'
+
 # default file names
 fidx     = 'ar_index_global_prof.txt'  # argo index file
-fidx_tmp = 'ar_index_global_prof_tmp.txt'
-sidx     = 'ar_index_sections.txt'
+fidx_tmp = odir+'ar_index_global_prof_tmp.txt'
+sidx     = odir+'ar_index_sections.txt'
 
 # directories for data (argo.*) and figures (fig.*)
-mdir     = 'fig.daily_maps/'
-pdir     = 'fig.daily_profiles/'
-sdir     = 'fig.sections/'
-tdir     = 'fig.trajectories/'
-pdir2    = 'argo.profiles/'
-sdir2    = 'argo.sections/'
-tdir2    = 'argo.trajectories/'
-
-# ROI boundaries latN, latS, lonW, lonE
-bound = (-35,-70,-105,-35)
+mdir     = odir+'fig.daily_maps/'
+pdir     = odir+'fig.daily_profiles/'
+sdir     = odir+'fig.sections/'
+tdir     = odir+'fig.trajectories/'
+pdir2    = odir+'argo.profiles/'
+sdir2    = odir+'argo.sections/'
+tdir2    = odir+'argo.trajectories/'
 
 # gross sanity check - max/min accepted values for variables
 smin_check = 20
@@ -48,6 +66,7 @@ smax_check = 40
 deg = u'\N{DEGREE SIGN}'
 
 # check dir structure and make directories if required
+if not os.path.exists(odir): os.system('mkdir '+odir)
 if not os.path.exists(mdir): os.system('mkdir '+mdir)
 if not os.path.exists(pdir): os.system('mkdir '+pdir)
 if not os.path.exists(sdir): os.system('mkdir '+sdir)
@@ -98,19 +117,18 @@ else: # check the one you have is up-to-date
         print 'Your Argo index file is up-to-date.'
 
 
-# search for argo floats in ROI
-for ii in range (1,31):
+# search for argo floats in region and time period of interest
+for ii in range (t0,t1): # loop time
 
-    d = datetime.datetime.now()
-    cyy = getattr(d,'year')
-    cmm = getattr(d,'month')
-    cdd = getattr(d,'day')
-    cmm = 11
-    cdd = ii
+    cdd = date.fromordinal(ii).day
+    cmm = date.fromordinal(ii).month
+    cyy = date.fromordinal(ii).year
 
-    if os.path.exists(fidx_tmp):
-        print 'current Argo file exists, execution stopped...'
-#        sys.exit()
+    # daily forecast
+    # d = datetime.datetime.now()
+    # cyy = getattr(d,'year')
+    # cmm = getattr(d,'month')
+    # cdd = getattr(d,'day')
 
     # get new profiles metadata
     os.system('grep nc,'+str(cyy)+'%02d' %cmm+'%02d' %cdd+' '+fidx+' > '+fidx_tmp)
@@ -143,7 +161,7 @@ for ii in range (1,31):
         # download profiles on spec day in ROI
         os.chdir(pdir2)
         os.system('ftp -V '+d)
-        os.chdir('../')
+        os.chdir('../../')
 
         print 'making float location figure...'
 
@@ -167,7 +185,7 @@ for ii in range (1,31):
 
         plt.title("Argo profiles - "+str(cmm)+'/'+str(cdd)+'/'+str(cyy))
 
-        plt.savefig('./'+mdir+'/Argo_'+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'.png',dpi=300)
+        plt.savefig('./'+mdir+'Argo_'+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd+'.png',dpi=300)
         plt.close()
 
         if not os.path.exists(pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd):
@@ -184,9 +202,6 @@ for ii in range (1,31):
             s = arpr.variables['PSAL'][0,:]#.compressed()
             p = arpr.variables['PRES'][0,:]#.compressed()
             t = arpr.variables['TEMP'][0,:]#.compressed()
-            # s = arpr.variables['PSAL'][:]#.compressed()
-            # p = arpr.variables['PRES'][:]#.compressed()
-            # t = arpr.variables['TEMP'][:]#.compressed()
 
             p_goods = p != 99999
 
@@ -245,16 +260,16 @@ for ii in range (1,31):
                     tlon = []
                     tcnt = []
                     tkm  = []
-                    ii   = 0
+                    icnt   = 0
                     for line in f1:
                         tlat.append(float(line.split(' ')[1]))
                         tlon.append(float(line.split(' ')[2]))
-                        tcnt.append(ii)
-                        if ii == 0:
+                        tcnt.append(icnt)
+                        if icnt == 0:
                             tkm.append(0)
                         else:
-                            tkm.append(sw.dist((tlat[ii-1],tlat[ii]), (tlon[ii-1],tlon[ii]), units='km')[0]+tkm[-1])
-                        ii=ii+1
+                            tkm.append(sw.dist((tlat[icnt-1],tlat[icnt]), (tlon[icnt-1],tlon[icnt]), units='km')[0]+tkm[-1])
+                        icnt=icnt+1
                     f1.close()
 
                     # make trajectory plot for this float
@@ -309,31 +324,10 @@ for ii in range (1,31):
 
                     # plot section
 
-                    if prof.split('_')[0][1:] != '6901654': # '6901710' yet another one with different size
-
-                        s_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_s.txt')
-                        p_prof = np.loadtxt(sdir2+prof.split('_')[0][1:]+'_p.txt')
-
-                        s_prof[1:,:][s_prof[1:,:]>smax_check] = -1
-                        s_prof[1:,:][s_prof[1:,:]<smin_check] = 'NaN'
-
-                        #sys.exit()
-                        pres = p_prof[0,:]
-                        sec  = np.array(range(1,np.shape(p_prof)[0]+2))
-
-                        #sal  = sprof[1:,:]
-                        #sal_m = np.ma.masked_invalid(s_prof[1:,:])
-                        #plt.pcolor(sec,-sprof[0,:],sprof[1:,:].T)
-
-                        plt.pcolor(sec,-pres,s_prof.T)
-                        plt.clim([33.5,35])
-                        plt.colorbar()
-                        plt.ylabel('Pressure (dbar)')
-                        plt.xlabel('Distance (Km)')
-
-                        plt.title("Salinity section - Float: "+str(prof.split('_')[0][1:]))
-                        plt.savefig(sdir+prof.split('_')[0][1:]+'.png',dpi=300)
-                        plt.close()
+                    do_sec = 1
+                    if do_sec == 1:
+                        plot_section()
+                        do_sec = 0
 
             else:
 
