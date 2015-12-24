@@ -9,6 +9,9 @@ t1 =  date.toordinal(date(2015,12,21))
 # Region of intereset (ROI) boundaries latN, latS, lonW, lonE
 bound = (-35,-70,-105,-35)
 
+# no of times to try to download profiles before giving up
+trytimes = 2
+
 # Argo floats global repositories
 server1  = 'ftp://usgodae.org/pub/outgoing/argo/'
 server2  = 'ftp://ftp.ifremer.fr/ifremer/argo'

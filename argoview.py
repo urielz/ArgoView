@@ -82,7 +82,7 @@ for ii in range (config.t0,config.t1): # loop time
     f.close()
 
     if fcnt == 0:
-        print ('No profiles available for '+str(cyy)+'/%02d' %cmm+'/%02d' %cdd+' inside the region of interest')
+        print ('- No profiles available for '+str(cyy)+'/%02d' %cmm+'/%02d' %cdd+' inside the region of interest')
     else:
         print ('- Found '+str(fcnt)+' profiles... downloading ...')
         # download profiles on spec day in ROI
@@ -91,7 +91,10 @@ for ii in range (config.t0,config.t1): # loop time
         for i in range(1,np.size(arfiles)):
 #            fail = os.system('ftp -V '+arfiles[i])
             if not os.path.isfile(arfiles[i].split('/')[-1]):
-                fail = os.system('curl -s '+arfiles[i]+' --remote-name')
+                fail = 1; inc = 1
+                while fail and inc < config.trytimes+1:
+                    fail = os.system('curl -s '+arfiles[i]+' --remote-name')
+                    inc = inc + 1
                 if fail:
                     print ('-- Failed to download '+arfiles[i])  #To do: decide what to do here
         os.chdir('../../')
@@ -107,7 +110,7 @@ for ii in range (config.t0,config.t1): # loop time
         i = 0
 
         # read new profiles
-        print ('- Loading floats, make profile plots, trajectory file and sections')
+        print ('- Load floats, make profile plots, trajectory file and sections')
         for prof in prid:
 
             arpr = nc.Dataset('./'+config.pdir2+'/'+prof+'.nc')
