@@ -47,7 +47,7 @@ if not os.path.exists(config.sdir2): os.system('mkdir '+config.sdir2)
 if not os.path.exists(config.tdir2): os.system('mkdir '+config.tdir2)
 
 # Prelim 2: check timestamp of index file and decide whether to download a new one
-get_index(server)
+#get_index(server)
 
 # Main loop: search for Argo floats in region and time period of interest
 for ii in range (config.t0,config.t1): # loop time
@@ -84,19 +84,20 @@ for ii in range (config.t0,config.t1): # loop time
     if fcnt == 0:
         print ('No profiles available for '+str(cyy)+'/%02d' %cmm+'/%02d' %cdd+' inside the region of interest')
     else:
-        print str(fcnt)+' profiles found... downloading ...'
+        print ('- Found '+str(fcnt)+' profiles... downloading ...')
         # download profiles on spec day in ROI
         os.chdir(config.pdir2)
         arfiles = d.split(' ')
         for i in range(1,np.size(arfiles)):
-            fail = os.system('ftp -V '+arfiles[i])
-            if fail:
-                print ('Failed to download '+arfiles[i])  #To do: decide what to do here
-
+#            fail = os.system('ftp -V '+arfiles[i])
+            if not os.path.isfile(arfiles[i].split('/')[-1]):
+                fail = os.system('curl -s '+arfiles[i]+' --remote-name')
+                if fail:
+                    print ('-- Failed to download '+arfiles[i])  #To do: decide what to do here
         os.chdir('../../')
 
         # make daily map with locations of new profiles
-        print ('making map with locations of new profiles...')
+        print ('- Making map with locations of new profiles...')
         plot_locations(lon,lat,prid,cyy,cmm,cdd)
 
         if not os.path.exists(config.pdir+'%02d' %cyy+'%02d' %cmm+'%02d' %cdd):
@@ -106,6 +107,7 @@ for ii in range (config.t0,config.t1): # loop time
         i = 0
 
         # read new profiles
+        print ('- Loading floats, make profile plots, trajectory file and sections')
         for prof in prid:
 
             arpr = nc.Dataset('./'+config.pdir2+'/'+prof+'.nc')
@@ -135,7 +137,7 @@ for ii in range (config.t0,config.t1): # loop time
                     np.savetxt(f_handle, s.reshape(1,s.shape[0]), delimiter=' ',fmt='%3.2f',newline='\r\n')
 
                 # make profile plot
-                print ('making profile plots for float '+prof.split('_')[0][1:])
+#                print ('making profile plots for float '+prof.split('_')[0][1:])
                 plot_profiles(prof,p,t,s,cyy,cmm,cdd)
 
                 if f_upd == 1: # only make trajectory and section plots if more than 1 profile for the float is available
@@ -157,14 +159,15 @@ for ii in range (config.t0,config.t1): # loop time
                     i = i + 1
 
                     # make trajectory plot for this float
-                    print ('making trajectory plot for float '+prof.split('_')[0][1:])
+                    #print ('making trajectory plot for float '+prof.split('_')[0][1:])
 
                     fig1 = plt.figure(2,figsize=(9,5),dpi=150,facecolor='white')
                     ax10 = fig1.add_axes([0.05, 0.6, 0.35, 0.35])
+
                     plot_trajectory(tlat,tlon,tkm,prof.split('_')[0][1:])
 
                     # make section plot
-                    print ('making section plot for float '+prof.split('_')[0][1:])
+#                    print ('making section plot for float '+prof.split('_')[0][1:])
                     fig = plt.figure(1,facecolor='white',edgecolor='black')
                     fig.set_figwidth=180
                     fig.set_figheight=6
@@ -183,7 +186,7 @@ for ii in range (config.t0,config.t1): # loop time
                     i = i + 1
 
             else:
-                print ('No valid data in '+prof)
+                print ('- No valid data in '+prof)
 
         f.close()
 
