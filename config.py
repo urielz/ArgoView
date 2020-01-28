@@ -3,11 +3,11 @@
 from datetime import date
 
 # Initial and final dates (yyyy/mm/dd)
-t0 =  date.toordinal(date(2015,11,07))
-t1 =  date.toordinal(date(2015,12,21))
+t0 =  date.toordinal(date(2020,1,1))
+t1 =  date.toordinal(date(2020,1,24))
 
 # Region of intereset (ROI) boundaries latN, latS, lonW, lonE
-bound = (-35,-70,-105,-35)
+bound = (68,40,-75,-40)
 
 # no of times to try to download profiles before giving up
 trytimes = 2

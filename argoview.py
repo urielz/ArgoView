@@ -47,7 +47,7 @@ if not os.path.exists(config.sdir2): os.system('mkdir '+config.sdir2)
 if not os.path.exists(config.tdir2): os.system('mkdir '+config.tdir2)
 
 # Prelim 2: check timestamp of index file and decide whether to download a new one
-response = raw_input("Do you want to update your index file? y/n ")
+response = input("Do you want to update your index file? y/n ")
 if response=='y':
     get_index(server)
 
@@ -91,7 +91,7 @@ for ii in range (config.t0,config.t1): # loop time
         os.chdir(config.pdir2)
         arfiles = d.split(' ')
         for i in range(1,np.size(arfiles)):
-#            fail = os.system('ftp -V '+arfiles[i])
+#            fail = os.system('gftp -V '+arfiles[i])
             if not os.path.isfile(arfiles[i].split('/')[-1]):
                 fail = 1; inc = 1
                 while fail and inc < config.trytimes+1:
