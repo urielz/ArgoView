@@ -70,16 +70,17 @@ for ii in range (config.t0,config.t1): # loop time
     lat, lon, prid  = ([] for k in range(3))
 
     for line in f:
-        clat = float(line.split(',')[2])
-        clon = float(line.split(',')[3])
-        cprid = str(str(line.split('/')[3]).split('.nc')[0])
+        if line.split(',')[2] and line.split(',')[3]:
+            clat = float(line.split(',')[2])
+            clon = float(line.split(',')[3])
+            cprid = str(str(line.split('/')[3]).split('.nc')[0])
 
-        if clat < config.bound[0] and clat > config.bound[1] and clon > config.bound[2] and clon < config.bound[3]:
-            lat.append(clat)
-            lon.append(clon)
-            prid.append(cprid)
-            fcnt = fcnt + 1
-            d = d+' '+server+'dac/'+line.split(',')[0]
+            if clat < config.bound[0] and clat > config.bound[1] and clon > config.bound[2] and clon < config.bound[3]:
+                lat.append(clat)
+                lon.append(clon)
+                prid.append(cprid)
+                fcnt = fcnt + 1
+                d = d+' '+server+'dac/'+line.split(',')[0]
 
     f.close()
 
